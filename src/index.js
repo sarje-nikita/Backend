@@ -1,9 +1,6 @@
+import dotenv from "dotenv";
+import connectDB from "./db/index.js";
 
-import connectDB from "./db/config.js";
-import dotenv from "dotenv" ;
+dotenv.config({ path: "./.env" });
 
-dotenv.config()
-
-
-
-//connectDB()
+connectDB();
