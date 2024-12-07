@@ -50,18 +50,59 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, "User registered successfully"));
 });
 
-const userInfromation = asyncHandler(async (req, res) => {
-  res.status(200).json({
-    id: 2,
-    name: "aniket wagh",
-    email: "waniket48@gmail.com",
+const loginUser = asyncHandler(async (req, res) => {
+  const { username, password, email } = req.body;
+  console.log(req.body)
+  if (!username && !email) {
+    throw new ApiError(400, "email and password is requrid");
+  }
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
   });
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  const isPasswordCorrect = user.isPasswordCorrect(password);
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(401, "invalid credentials");
+  }
+  //to generat access token and refresh token
+  const { accessToken, refreshToken } = generateAccessAndRefreshToken(user._id);
+  
+  const logedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { user: logedInUser, accessToken, refreshToken },
+        "user login sucessfuly"
+      )
+    );
 });
-const myInfromation = asyncHandler(async (req, res) => {
-  res.status(200).json({
-    id: 3,
-    name: "aniket wagh",
-    email: "waniket2000@gmail.com",
-  });
-});
-export { registerUser, userInfromation, myInfromation };
+
+async function generateAccessAndRefreshToken(userId) {
+  const user = await User.findById(userId);
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+  return {
+    accessToken,
+    refreshToken,
+  };
+}
+
+export { registerUser, loginUser };
